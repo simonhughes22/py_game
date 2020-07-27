@@ -3,7 +3,7 @@ from tutorial.sprite import MySprite
 
 class SpriteSheetAnimation(MySprite):
     def __init__(self, image, x, y, z_order,  num_frames, duration_secs, visible=True):
-        super().__init__(image=image, x=x, y=y, z_order=z_order, persists_on_kill=False, visible=visible)
+        super().__init__(image=image, x=x, y=y, z_order=z_order, visible=visible)
         self.num_frames = num_frames
         self.frame_width = self.width / num_frames
         self.duration_secs = duration_secs
@@ -16,7 +16,7 @@ class SpriteSheetAnimation(MySprite):
         self.frames_since_created += 1
         current_frame_ix = self.frames_since_created // self.secs_per_keyframe
         if current_frame_ix >= self.num_frames:
-            self.kill()
+            self.destroy()
         else:
             screen.blit(self.get_image(current_frame_ix), (self.x, self.y))
 
@@ -26,6 +26,6 @@ class SpriteSheetAnimation(MySprite):
     def when_finished(self, callback):
         self.callback = callback
 
-    def on_killed(self):
+    def on_destroyed(self):
         if self.callback is not None:
             self.callback()

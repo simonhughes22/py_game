@@ -8,10 +8,10 @@ def clip(val, min_val, max_val):
     return max(min_val, min(max_val, val))
 
 class MoveableMySprite(MySprite):
-    active_sprites = []
-    def __init__(self, image, x=-1, y=-1, accel=0.0, max_speed=35.0, z_order=0,
-                 keep_in_screen_bounds=True, persists_on_kill=False, visible=True):
-        super().__init__(image=image, x=x, y=y, z_order=z_order,persists_on_kill=persists_on_kill, visible=visible)
+    drawables = []
+    def __init__(self, image=None, x=-1, y=-1, accel=0.0, max_speed=35.0, z_order=0,
+                 keep_in_screen_bounds=True, visible=True):
+        super().__init__(image=image, x=x, y=y, z_order=z_order, visible=visible)
 
         self.x_change = 0
         self.y_change = 0
@@ -24,7 +24,6 @@ class MoveableMySprite(MySprite):
 
         self.z_order = z_order
         self.keep_in_screen_bounds = keep_in_screen_bounds
-        self.persists_on_kill = persists_on_kill
 
     def __apply_acceleration__(self):
         # X
@@ -43,7 +42,7 @@ class MoveableMySprite(MySprite):
         self.x = clip(self.x, 0, GameState.WIDTH - self.width)
         self.y = clip(self.y, 0, GameState.HEIGHT - self.height)
 
-    def move(self):
+    def update(self, ms):
         # update player position
         self.__apply_acceleration__()
 
