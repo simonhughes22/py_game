@@ -193,6 +193,7 @@ ship_explosion_sound = mixer.Sound(f"{ASSET_ROOT}/ship_explosion.wav")
 # IMAGES
 bullet_image = pygame.image.load(f"{ASSET_ROOT}/bullet.png").convert_alpha()
 player_image = pygame.image.load(f"{ASSET_ROOT}/spaceship-2.png").convert_alpha()
+heart_image = pygame.image.load(f"{ASSET_ROOT}/heart.png").convert_alpha()
 
 # Enemy images
 alien_image  = pygame.image.load(f"{ASSET_ROOT}/alien.png").convert_alpha()
@@ -226,7 +227,7 @@ def get_new_enemy_position():
         enemy_x, enemy_y = random.randint(0, GameState.WIDTH), random.randint(50, 200)
         for enemy in Drawable.get_all_of_type(Enemy):
             distance = enemy.get_distance_from_coord(enemy_x, enemy_y)
-            if distance > 70:
+            if distance > 120:
                 return enemy_x, enemy_y
     return enemy_x, enemy_y
 
@@ -240,9 +241,9 @@ def initialize_sprites():
     for i in range(NUM_ENEMIES):
         spawn_enemy(player)
 
-NUM_ENEMIES = 10
+NUM_ENEMIES = 8
 PLAYER_SPEED = 10
-ENEMY_SPEED = 8
+ENEMY_SPEED = 6
 NUM_STARS = 50
 ENEMY_EXPLOSION_DURATION_MSECS = 1000
 SHIP_EXPLOSION_DURATION_MSECS = 1000
@@ -253,32 +254,60 @@ if is_debug():
 
 input_handler = InputHandler()
 background = Background(num_stars=NUM_STARS)
-score = DrawText(font_size=32, font_name='freesansbold.ttf', txt=lambda : f"Score: {GameState.SCORE}",
-                 font_color=Color.WHITE, x=10, y=10)
+score_display = DrawText(txt=lambda : f"Score: {GameState.SCORE}",
+                         font_size=20, font_name='freesansbold.ttf',
+                         sys_font=False, font_color=Color.WHITE, x=10, y=10)
+
+game_over_display = DrawText(txt="GAME OVER",
+                         font_size=64, font_name='freesansbold.ttf',
+                         sys_font=False, font_color=Color.WHITE, x=200, y=250)
+
+game_over_prompt = DrawText(txt="Press 'R' to restart",
+                         font_size=32, font_name='freesansbold.ttf',
+                         sys_font=False, font_color=Color.WHITE, x=250, y=310)
+
 
 initialize_sprites()
 clock = pygame.time.Clock()
 
 while not GameState.QUIT:
-    # handle player death
-    if GameState.PLAYER_DIED:
-        GameState.PLAYER_DIED = False
-        GameState.LIVES -= 1
-        Drawable.remove_all()
-        timer = Timer(wait_time_ms=1000, callback=initialize_sprites)
-
     ms = clock.tick(GameState.FRAME_RATE)
     fps = clock.get_fps()
     print("FPS", fps)
 
-    new_key_presses = input_handler.process_events()
-    background.draw(screen)
+    input_handler.process_events()
 
-    Drawable.update_all(ms)
+    if GameState.RESTART:
+        GameState.RESTART = False
+        Drawable.remove_all()
+        GameState.LIVES = 3
+        GameState.SCORE = 0
+        timer = Timer(wait_time_ms=1000, callback=initialize_sprites)
+        continue
+
+    # handle player death
+    if GameState.PLAYER_DIED:
+        GameState.PLAYER_DIED = False
+        GameState.LIVES -= 1
+
+        if GameState.LIVES > 0:
+            Drawable.remove_all()
+            timer = Timer(wait_time_ms=1000, callback=initialize_sprites)
+
+    if GameState.LIVES > 0:
+        Drawable.update_all(ms)
+
     Timer.update_all(ms)
-
+    background.draw(screen)
     Drawable.draw_all(screen)
-    score.draw(screen)
+    score_display.draw(screen)
+
+    if GameState.LIVES <= 0:
+        game_over_display.draw(screen)
+        game_over_prompt.draw(screen)
+    else:
+        for i in range(GameState.LIVES):
+            screen.blit(heart_image, (120 + 28 * i, 4))
 
     # Update the display
     pygame.display.update()

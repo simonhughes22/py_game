@@ -4,12 +4,13 @@ from tutorial.updateable import Updateable
 class Drawable(Updateable):
     drawables = []
 
-    def __init__(self, x=-1, y=-1, z_order=-1):
+    def __init__(self, x=-1, y=-1, z_order=-1, add_to_drawables=True):
         self.x = x
         self.y = y
         self.z_order = z_order
         self.alive = True
-        Drawable.drawables.append(self)
+        if add_to_drawables:
+            Drawable.drawables.append(self)
 
     @abstractmethod
     def draw(self, screen):

@@ -16,6 +16,8 @@ class InputHandler(object):
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     GameState.QUIT = True
+                if event.key == pygame.K_r:
+                    GameState.RESTART = True
                 if event.key not in self.keys_down:
                     self.keys_pressed.add(event.key)
                     self.keys_down.add(event.key)

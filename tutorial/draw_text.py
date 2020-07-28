@@ -1,10 +1,14 @@
+from tutorial.colors import Color
 from tutorial.drawable import Drawable
 import pygame
 
 class DrawText(Drawable):
-    def __init__(self, font_size, font_name, font_color, txt, x, y, z_order=999):
-        super().__init__(x=x, y=y, z_order=z_order)
-        self.font = pygame.font.Font(font_name, font_size)
+    def __init__(self, txt, font_size, font_name='freesansbold.ttf', sys_font=True, font_color=Color.WHITE, x=-1, y=-1, z_order=999):
+        super().__init__(x=x, y=y, z_order=z_order, add_to_drawables=False)
+        if sys_font:
+            self.font = pygame.font.SysFont(font_name, font_size)
+        else:
+            self.font = pygame.font.Font(font_name, font_size)
         self.font_color = font_color
         self.txt = txt
 
