@@ -5,3 +5,4 @@ class GameState(object):
     HEIGHT = 600
     FRAME_RATE = 60
     QUIT = False
+    PLAYER_DIED = False

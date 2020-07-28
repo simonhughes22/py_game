@@ -2,8 +2,8 @@ from tutorial.game_state import GameState
 from tutorial.sprite import MySprite
 
 class SpriteSheetAnimation(MySprite):
-    def __init__(self, image, x, y, z_order,  num_frames, duration_secs, visible=True):
-        super().__init__(image=image, x=x, y=y, z_order=z_order, visible=visible)
+    def __init__(self, image, x, y, z_order,  num_frames, duration_secs):
+        super().__init__(image=image, x=x, y=y, z_order=z_order)
         self.num_frames = num_frames
         self.frame_width = self.width / num_frames
         self.duration_secs = duration_secs

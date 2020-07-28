@@ -5,80 +5,54 @@ import pygame
 
 from tutorial.animation import SpriteSheetAnimation
 from tutorial.colors import Color
+from tutorial.draw_text import DrawText
 from tutorial.game_state import GameState
 from tutorial.input_handler import InputHandler
 from tutorial.moveable_sprite import MoveableMySprite
 from tutorial.sprite import Drawable
 
 class Player(MoveableMySprite):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.z_order = 1 # render after the default sprites
+    def __init__(self, image, input_handler, x=-1, y=-1, accel=0.0, max_speed=35.0, keep_in_screen_bounds=True):
+        super().__init__(image=image, x=x, y=y, accel=accel, max_speed=max_speed,
+                         z_order=1, keep_in_screen_bounds=keep_in_screen_bounds)
+        self.input_handler = input_handler
 
-    def process_keyboard_input(self, new_keys_pressed, keys_down):
+    def on_before_update(self):
         if not self.alive:
             return
 
-        if pygame.K_SPACE in new_keys_pressed:
-            bullet = Bullet(player=player)
+        keys_pressed = self.input_handler.keys_pressed
+        keys_down = self.input_handler.keys_down
+
+        if pygame.K_SPACE in keys_pressed:
+            bullet = Bullet(player=self)
 
         if pygame.K_LEFT not in keys_down and pygame.K_RIGHT not in keys_down:
-            player.x_accel = 0
-            player.x_change = 0
+            self.x_accel = 0
+            self.x_change = 0
         else:
             if pygame.K_LEFT in keys_down:
-                player.x_accel = -1 * player.accel
+                self.x_accel = -1 * self.accel
             if pygame.K_RIGHT in keys_down:
-                player.x_accel = player.accel
+                self.x_accel = self.accel
 
     def on_destroyed(self):
-        Drawable.remove_all()
-        GameState.LIVES -= 1
-
         scaled_image = pygame.transform.scale(explosion_image, (self.width * explosion_frames, self.height))
         explosion_animation = SpriteSheetAnimation(
             image=scaled_image, x=self.x, y=self.y, z_order=self.z_order + 1,
             num_frames=explosion_frames, duration_secs=0.3)
 
-        def new_player():
-            # spr_player = Player(player_image, x=370, y=540, accel=PLAYER_SPEED/5, max_speed=PLAYER_SPEED)
-            pass
+        def animation_complete():
+            GameState.PLAYER_DIED = True
 
-        explosion_animation.when_finished(new_player)
-
-class Bullet(MoveableMySprite):
-    def __init__(self, player, width=3, height=8):
-        super().__init__(x=player.x + (player.width) / 2 - width / 2,
-                         y=player.y + height / 4,
-                         keep_in_screen_bounds=False, z_order = player.z_order-1)
-        self.width = width
-        self.height = height
-        self.y_change = -1 * player.max_speed * 2.0
-        # paint before (behind) the player
-        self.max_speed = abs(self.y_change)
-
-    def draw(self, screen):
-        if self.visible:
-            pygame.draw.rect(screen, Color.YELLOW, (self.x, self.y, self.width, self.height))
-
-    def on_screen_bounds_exceeded(self):
-        self.destroy()
-
-    def get_rect(self):
-        rect = pygame.Rect(self.x, self.y, self.width, self.height)
-        return rect
-
-    def on_moved(self):
-         for enemy in Drawable.get_all_of_type(Enemy):
-            if self.has_collided_with(enemy):
-                self.destroy()
-                enemy.destroy()
-                GameState.SCORE += 1
+        explosion_animation.when_finished(animation_complete)
 
 class Enemy(MoveableMySprite):
     DROP = 40
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, image, player, x=-1, y=-1, accel=0.0, max_speed=35.0, z_order=-1, keep_in_screen_bounds=True):
+        super().__init__(image=image, x=x, y=y, accel=accel, max_speed=max_speed,
+                         z_order=z_order, keep_in_screen_bounds=keep_in_screen_bounds)
+        self.player = player
         self.facing_right = random.choice([True, False])
 
     def update(self, ms):
@@ -99,15 +73,14 @@ class Enemy(MoveableMySprite):
             self.y += Enemy.DROP
 
         # clip to player's y position so it doesn't drop off the screen
-        self.y = min(player.y, self.y)
+        self.y = min(self.player.y, self.y)
         self.__clip_to_screen_bounds__()
-        self.on_moved()
+        self.on_updated()
 
-    def on_moved(self):
+    def on_updated(self):
         for spr in Drawable.drawables:
             if type(spr) == Player and self.has_collided_with(spr):
-                Drawable.destroy_all()
-                GameState.LIVES -= 1
+                spr.destroy()
 
     def on_destroyed(self):
         scaled_image = pygame.transform.scale(explosion_image, (self.width * explosion_frames, self.height))
@@ -117,11 +90,39 @@ class Enemy(MoveableMySprite):
 
         # Spawn new enemy
         # spawn_enemy() # causes an infinite loop when hitting the player, who kills the enemies
-        spawn_enemy()
+        spawn_enemy(self.player)
+
+class Bullet(MoveableMySprite):
+    def __init__(self, player, width=3, height=8):
+        super().__init__(x=player.x + (player.width) / 2 - width / 2,
+                         y=player.y + height / 4,
+                         keep_in_screen_bounds=False, z_order = player.z_order-1)
+        self.width = width
+        self.height = height
+        self.y_change = -1 * player.max_speed * 2.0
+        # paint before (behind) the player
+        self.max_speed = abs(self.y_change)
+
+    def draw(self, screen):
+        pygame.draw.rect(screen, Color.YELLOW, (self.x, self.y, self.width, self.height))
+
+    def on_screen_bounds_exceeded(self):
+        self.destroy()
+
+    def get_rect(self):
+        rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        return rect
+
+    def on_updated(self):
+         for enemy in Drawable.get_all_of_type(Enemy):
+            if self.has_collided_with(enemy):
+                self.destroy()
+                enemy.destroy()
+                GameState.SCORE += 1
 
 class Background(Drawable):
     def __init__(self, num_stars):
-        super().__init__(z_order=-10)
+        super().__init__(x=0, y=0, z_order=-10)
         self.persists_on_kill = True
         # Do not call super this time
         self.stars = [
@@ -134,7 +135,7 @@ class Background(Drawable):
         # black background
         self.background.fill(Color.BLACK)
         self.__draw_stars__()
-        screen.blit(self.background, (0, 0))
+        screen.blit(self.background, (self.x, self.y)) # (0,0)
 
     def __draw_stars__(self):
         for star in self.stars:
@@ -166,7 +167,6 @@ def is_debug():
     return tr is not None
 
 pygame.init()
-
 # If in debug, do not go full screen
 if is_debug():
     screen = pygame.display.set_mode((GameState.WIDTH, GameState.HEIGHT))
@@ -174,7 +174,6 @@ else:
     screen = pygame.display.set_mode((GameState.WIDTH, GameState.HEIGHT), pygame.FULLSCREEN)
 
 pygame.display.set_caption("Space Invaders")
-
 # Load Assets
 ASSET_ROOT = "./assets"
 
@@ -216,33 +215,53 @@ def get_new_enemy_position():
                 return enemy_x, enemy_y
     return enemy_x, enemy_y
 
-def spawn_enemy():
+def spawn_enemy(player):
     enemy_x, enemy_y = get_new_enemy_position()
     image = random.choice(enemy_images)
-    enemy = Enemy(image=image, x=enemy_x, y=enemy_y, accel=ENEMY_BASE_SPEED/2, max_speed=ENEMY_BASE_SPEED)
+    enemy = Enemy(image=image, player=player, x=enemy_x, y=enemy_y, accel=ENEMY_SPEED / 2, max_speed=ENEMY_SPEED)
+
+def initialize_sprites():
+    player = Player(player_image, input_handler, x=370, y=540, accel=PLAYER_SPEED / 5, max_speed=PLAYER_SPEED)
+    for i in range(NUM_ENEMIES):
+        spawn_enemy(player)
 
 NUM_ENEMIES = 10
 PLAYER_SPEED = 10
-ENEMY_BASE_SPEED = 12
+ENEMY_SPEED = 8
 NUM_STARS = 50
+
+if is_debug():
+    PLAYER_SPEED *= 4
+    ENEMY_SPEED *= 4
 
 input_handler = InputHandler()
 background = Background(num_stars=NUM_STARS)
-player = Player(player_image, x=370, y=540, accel=PLAYER_SPEED / 5, max_speed=PLAYER_SPEED)
-for i in range(NUM_ENEMIES):
-    spawn_enemy()
+score = DrawText(font_size=32, font_name='freesansbold.ttf', txt=lambda : f"Score: {GameState.SCORE}",
+                 font_color=Color.WHITE, x=10, y=10)
 
+initialize_sprites()
 clock = pygame.time.Clock()
+
 while not GameState.QUIT:
     ms = clock.tick(GameState.FRAME_RATE)
     fps = clock.get_fps()
     print("FPS", fps)
 
     new_key_presses = input_handler.process_events()
-    player.process_keyboard_input(new_keys_pressed=new_key_presses, keys_down=input_handler.keys_down)
-
     background.draw(screen)
+
     Drawable.render(screen, ms)
+    score.draw(screen)
+
     pygame.display.update()
+
+    # handle player death
+    if GameState.PLAYER_DIED:
+        Drawable.remove_all()
+        GameState.LIVES -= 1
+        initialize_sprites()
+        GameState.PLAYER_DIED = False
+
+
 
 
