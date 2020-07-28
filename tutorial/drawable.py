@@ -1,6 +1,7 @@
 from abc import abstractmethod
+from tutorial.updateable import Updateable
 
-class Drawable(object):
+class Drawable(Updateable):
     drawables = []
 
     def __init__(self, x=-1, y=-1, z_order=-1):
@@ -9,10 +10,6 @@ class Drawable(object):
         self.z_order = z_order
         self.alive = True
         Drawable.drawables.append(self)
-
-    @abstractmethod
-    def update(self, ms):
-        pass
 
     @abstractmethod
     def draw(self, screen):
@@ -31,10 +28,15 @@ class Drawable(object):
         pass
 
     @classmethod
-    def render(cls, screen, ms):
-        for spr in sorted(Drawable.drawables, key=lambda s : s.z_order):
+    def update_all(cls, ms):
+        for spr in Drawable.drawables:
             if spr.alive: # don't update if already destroyed
                 spr.update(ms)
+
+    @classmethod
+    def draw_all(cls, screen):
+        for spr in sorted(Drawable.drawables, key=lambda s: s.z_order):
+            if spr.alive:  # don't draw if already destroyed
                 spr.draw(screen)
 
     @classmethod

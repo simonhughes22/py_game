@@ -2,6 +2,7 @@ import random
 import sys
 
 import pygame
+from pygame import mixer
 
 from tutorial.animation import SpriteSheetAnimation
 from tutorial.colors import Color
@@ -10,6 +11,8 @@ from tutorial.game_state import GameState
 from tutorial.input_handler import InputHandler
 from tutorial.moveable_sprite import MoveableMySprite
 from tutorial.sprite import Drawable
+from tutorial.timer import Timer
+
 
 class Player(MoveableMySprite):
     def __init__(self, image, input_handler, x=-1, y=-1, accel=0.0, max_speed=35.0, keep_in_screen_bounds=True):
@@ -26,6 +29,7 @@ class Player(MoveableMySprite):
 
         if pygame.K_SPACE in keys_pressed:
             bullet = Bullet(player=self)
+            bullet_sound.play()
 
         if pygame.K_LEFT not in keys_down and pygame.K_RIGHT not in keys_down:
             self.x_accel = 0
@@ -37,10 +41,11 @@ class Player(MoveableMySprite):
                 self.x_accel = self.accel
 
     def on_destroyed(self):
-        scaled_image = pygame.transform.scale(explosion_image, (self.width * explosion_frames, self.height))
+        scaled_image = pygame.transform.scale(ship_explosion_image, (self.width * ship_explosion_frames, self.height))
         explosion_animation = SpriteSheetAnimation(
             image=scaled_image, x=self.x, y=self.y, z_order=self.z_order + 1,
-            num_frames=explosion_frames, duration_secs=0.3)
+            num_frames=ship_explosion_frames, duration_secs=SHIP_EXPLOSION_DURATION_MSECS/1000)
+        ship_explosion_sound.play(maxtime=SHIP_EXPLOSION_DURATION_MSECS)
 
         def animation_complete():
             GameState.PLAYER_DIED = True
@@ -83,11 +88,11 @@ class Enemy(MoveableMySprite):
                 spr.destroy()
 
     def on_destroyed(self):
-        scaled_image = pygame.transform.scale(explosion_image, (self.width * explosion_frames, self.height))
+        scaled_image = pygame.transform.scale(enemy_explosion_image, (self.width * enemy_explosion_frames, self.height))
         explosion_animation = SpriteSheetAnimation(
             image=scaled_image, x=self.x, y=self.y, z_order=self.z_order+1,
-            num_frames=explosion_frames, duration_secs=0.3)
-
+            num_frames=enemy_explosion_frames, duration_secs=ENEMY_EXPLOSION_DURATION_MSECS/1000)
+        enemy_explosion_sound.play(maxtime=ENEMY_EXPLOSION_DURATION_MSECS)
         # Spawn new enemy
         # spawn_enemy() # causes an infinite loop when hitting the player, who kills the enemies
         spawn_enemy(self.player)
@@ -99,7 +104,7 @@ class Bullet(MoveableMySprite):
                          keep_in_screen_bounds=False, z_order = player.z_order-1)
         self.width = width
         self.height = height
-        self.y_change = -1 * player.max_speed * 2.0
+        self.y_change = -1 * player.max_speed * 1.25
         # paint before (behind) the player
         self.max_speed = abs(self.y_change)
 
@@ -177,8 +182,16 @@ pygame.display.set_caption("Space Invaders")
 # Load Assets
 ASSET_ROOT = "./assets"
 
+# load sounds
+mixer.music.load(f"{ASSET_ROOT}/background.wav")
+mixer.music.play(-1)
+
+bullet_sound = mixer.Sound(f"{ASSET_ROOT}/laser.wav")
+enemy_explosion_sound = mixer.Sound(f"{ASSET_ROOT}/explosion.wav")
+ship_explosion_sound = mixer.Sound(f"{ASSET_ROOT}/ship_explosion.wav")
+
+# IMAGES
 bullet_image = pygame.image.load(f"{ASSET_ROOT}/bullet.png").convert_alpha()
-# player_image = pygame.image.load(f"{ASSET_ROOT}/rocket.png").convert_alpha()
 player_image = pygame.image.load(f"{ASSET_ROOT}/spaceship-2.png").convert_alpha()
 
 # Enemy images
@@ -192,9 +205,11 @@ monster_medium_image  = pygame.image.load(f"{ASSET_ROOT}/monster_medium.png").co
 monster_small_image  = pygame.image.load(f"{ASSET_ROOT}/monster_small.png").convert_alpha()
 
 # animations
-explosion_image  = pygame.image.load(f"{ASSET_ROOT}/explosion.png").convert_alpha()
-explosion_frames = 12
-explosion_duration_secs = 3
+enemy_explosion_image  = pygame.image.load(f"{ASSET_ROOT}/explosion.png").convert_alpha()
+enemy_explosion_frames = 12
+
+ship_explosion_image  = pygame.image.load(f"{ASSET_ROOT}/ship_explosion.png").convert_alpha()
+ship_explosion_frames = 6
 
 enemy_images = [
     alien_image,
@@ -229,6 +244,8 @@ NUM_ENEMIES = 10
 PLAYER_SPEED = 10
 ENEMY_SPEED = 8
 NUM_STARS = 50
+ENEMY_EXPLOSION_DURATION_MSECS = 1000
+SHIP_EXPLOSION_DURATION_MSECS = 1000
 
 if is_debug():
     PLAYER_SPEED *= 4
@@ -243,6 +260,13 @@ initialize_sprites()
 clock = pygame.time.Clock()
 
 while not GameState.QUIT:
+    # handle player death
+    if GameState.PLAYER_DIED:
+        GameState.PLAYER_DIED = False
+        GameState.LIVES -= 1
+        Drawable.remove_all()
+        timer = Timer(wait_time_ms=1000, callback=initialize_sprites)
+
     ms = clock.tick(GameState.FRAME_RATE)
     fps = clock.get_fps()
     print("FPS", fps)
@@ -250,18 +274,11 @@ while not GameState.QUIT:
     new_key_presses = input_handler.process_events()
     background.draw(screen)
 
-    Drawable.render(screen, ms)
+    Drawable.update_all(ms)
+    Timer.update_all(ms)
+
+    Drawable.draw_all(screen)
     score.draw(screen)
 
+    # Update the display
     pygame.display.update()
-
-    # handle player death
-    if GameState.PLAYER_DIED:
-        Drawable.remove_all()
-        GameState.LIVES -= 1
-        initialize_sprites()
-        GameState.PLAYER_DIED = False
-
-
-
-
